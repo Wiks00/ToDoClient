@@ -7,6 +7,10 @@ namespace ORM
 {
     public class User
     {
+        public User()
+        {
+            UserTasks = new List<ToDoTask>();
+        }
         public int Id { get; set; }
 
         public string Username { get; set; }

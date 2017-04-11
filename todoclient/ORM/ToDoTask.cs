@@ -5,10 +5,14 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Web;
 
-namespace todoclient.ORM
+namespace ORM
 {
     public class ToDoTask
     {
+        public ToDoTask()
+        {
+            User = new User();
+        }
         public int Id { get; set; }
 
         [ForeignKey("User")]

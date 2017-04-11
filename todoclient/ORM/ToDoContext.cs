@@ -8,7 +8,7 @@ namespace ORM
 {
     public class ToDoContext:DbContext
     {
-        public ToDoContext()
+        public ToDoContext():base("ToDoDB")
         {
 
         }
