@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Web;
+using WebApi.Helpers;
 
 namespace WebApi.Models
 {
@@ -39,5 +40,12 @@ namespace WebApi.Models
         /// The name.
         /// </value>
         public string Name { get; set; }
+
+        public override bool Equals(object obj)
+        {
+            //ToDo: change
+
+            return this.GetId() == (obj as ToDoItemModel).GetId();
+        }
     }
 }
