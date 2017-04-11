@@ -6,13 +6,12 @@ using System.Threading;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
-using Newtonsoft.Json;
+using WebApi.Concrete;
 using WebApi.DAL;
 using WebApi.Helpers;
 using WebApi.Models;
-using WebApi.Services;
 
-namespace WebApi.Concrete
+namespace WebApi.Services
 {
     public class SyncService : IDisposable
     {
@@ -52,9 +51,9 @@ namespace WebApi.Concrete
             requestsList = new BlockingCollection<CommunicationMessage>(maxRequestCountBeforeSync);
         }
 
-        public async Task<IList<ToDoItemModel>> GetToDoItems(int userId)
+        public async Task<IList<ToDoItemModel>> GetToDoItemsAsync(int userId)
         {
-            List<ToDoItemModel> response = null;
+            List<ToDoItemModel> response;
 
             if (IsSyncNeeded())
             {
@@ -75,7 +74,7 @@ namespace WebApi.Concrete
             return response;
         }
 
-        public int AddToDoItem(ToDoItemModel toDoItem)
+        public void AddToDoItem(ToDoItemModel toDoItem)
         {
             toDoItem.Name += Guid.NewGuid();
             
@@ -84,16 +83,12 @@ namespace WebApi.Concrete
             //ToDo: Add exeption handling
 
             AddToRequestsList(toDoItem, Operation.Add);
-
-            return toDoItem.ToDoId;
         }
 
         public void UpdateToDoItem(ToDoItemModel toDoItem)
         {
-            CommunicationMessage request;  
-                 
-            request = requestsList.FirstOrDefault(
-                        msg => msg.Operation.Equals(Operation.Add) && msg.ToDoItem.Equals(toDoItem));
+            /*CommunicationMessage request = requestsList.FirstOrDefault(
+                msg => msg.Operation.Equals(Operation.Add) && msg.ToDoItem.Equals(toDoItem));
 
             if (!ReferenceEquals(request, null))
             {
@@ -103,7 +98,7 @@ namespace WebApi.Concrete
                 }
                 
                 return;
-            }
+            }*/
 
             var toDoTask = dbEntities.ToDoTask.Find(toDoItem.GetId());
 
@@ -120,16 +115,14 @@ namespace WebApi.Concrete
         }
 
         public void DeleteToDoItem(ToDoItemModel toDoItem)
-        {        
-            CommunicationMessage request;
-
-            request = requestsList.FirstOrDefault(
-                        msg => msg.Operation.Equals(Operation.Add) || msg.Operation.Equals(Operation.Update) && msg.ToDoItem.Equals(toDoItem));
+        {
+            /*CommunicationMessage request = requestsList.FirstOrDefault(
+                msg => msg.Operation.Equals(Operation.Add) || msg.Operation.Equals(Operation.Update) && msg.ToDoItem.Equals(toDoItem));
 
             if (!ReferenceEquals(request, null))
             {
                 //ToDo: unreal to delete specific item
-            }
+            }*/
 
             var toDoTask = dbEntities.ToDoTask.Find(toDoItem.GetId());
 
