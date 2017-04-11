@@ -16,7 +16,7 @@ namespace WebApi.Controllers
         private readonly ToDoService todoService = new ToDoService();
         private readonly UserService userService = new UserService();
 
-        private SyncMaster GetSyncMaster { get; } = new SyncMaster();
+        private SyncService GetSyncMaster { get; } = new SyncService();
 
         // GET api/todo
         public async Task<IList<ToDoItemModel>> Get()

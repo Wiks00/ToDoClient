@@ -10,7 +10,7 @@ using WebApi.Services;
 
 namespace WebApi.Concrete
 {
-    public class SyncMaster
+    public class SyncService
     {
         private readonly bool syncToken;
         private readonly int maxRequestCountBeforeSync;
@@ -21,13 +21,23 @@ namespace WebApi.Concrete
 
         private ConcurrentQueue<CommunicationMessage> concurrentQueue;
 
-        public SyncMaster(int maxRequestCountBeforeSync = 10)
+        public SyncService(int maxRequestCountBeforeSync = 10)
         {
             this.maxRequestCountBeforeSync = maxRequestCountBeforeSync;
             syncCounter = 0;
             syncToken = false;
             concurrentQueue = new ConcurrentQueue<CommunicationMessage>();
         }
+
+        public int AddToDoItem(ToDoItemModel toDoItem)
+        {
+            //ToDo: Db insert
+
+            concurrentQueue.Enqueue(new CommunicationMessage { Operation = Operation.Add, ToDoItem = toDoItem});
+
+            return toDoItem.ToDoId;
+        }
+
 
         public void SyncAsync(CancellationTokenSource cancellationTokenSource)
         {
@@ -43,6 +53,7 @@ namespace WebApi.Concrete
             finally
             {
                 cancellationTokenSource.Dispose();
+                syncCounter = 0;
             }
         }
 
@@ -66,6 +77,9 @@ namespace WebApi.Concrete
                 case Operation.Delete:
                     todoService.DeleteItem(int.Parse(message.ToDoItem.Name.Substring(message.ToDoItem.Name.LastIndexOf(",", StringComparison.InvariantCultureIgnoreCase) + 1)));
                     break;
+
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
     }
