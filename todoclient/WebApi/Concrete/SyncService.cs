@@ -5,6 +5,8 @@ using System.Threading;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
+using Newtonsoft.Json;
+using WebApi.Helpers;
 using WebApi.Models;
 using WebApi.Services;
 
@@ -12,55 +14,163 @@ namespace WebApi.Concrete
 {
     public class SyncService
     {
-        private readonly bool syncToken;
         private readonly int maxRequestCountBeforeSync;
-        private int syncCounter;
 
         private readonly ToDoService todoService = new ToDoService();
         private readonly UserService userService = new UserService();
 
-        private ConcurrentQueue<CommunicationMessage> concurrentQueue;
+        private static List<CommunicationMessage> requestsList = new List<CommunicationMessage>();  
+        private static readonly ReaderWriterLockSlim rwLockSlim =  new ReaderWriterLockSlim();
+
+        private bool syncToken;
+
+        public CancellationTokenSource CancellationToken { get; set; }
 
         public SyncService(int maxRequestCountBeforeSync = 10)
         {
             this.maxRequestCountBeforeSync = maxRequestCountBeforeSync;
-            syncCounter = 0;
             syncToken = false;
-            concurrentQueue = new ConcurrentQueue<CommunicationMessage>();
+        }
+
+        public async Task<IList<ToDoItemModel>> GetToDoItems(int userId)
+        {
+            List<ToDoItemModel> response =  await Task.Run(() => todoService.GetItems(userId).ToList());
+
+            //ToDo: Db get
+            //ToDo: Add exeption handling
+
+            syncToken = true;
+
+            return response;
         }
 
         public int AddToDoItem(ToDoItemModel toDoItem)
         {
-            //ToDo: Db insert
+            toDoItem.Name += Guid.NewGuid();
 
-            concurrentQueue.Enqueue(new CommunicationMessage { Operation = Operation.Add, ToDoItem = toDoItem});
+            //ToDo: Db insert
+            //ToDo: Add exeption handling
+
+            AddToRequestsList(toDoItem, Operation.Add);
 
             return toDoItem.ToDoId;
         }
 
-
-        public void SyncAsync(CancellationTokenSource cancellationTokenSource)
+        public void UpdateToDoItem(ToDoItemModel toDoItem)
         {
+            CommunicationMessage request;
+
+            rwLockSlim.EnterReadLock();
             try
             {
-                Parallel.ForEach(concurrentQueue, new ParallelOptions {CancellationToken = cancellationTokenSource.Token},
-                SolveMethod);
-            }
-            catch (OperationCanceledException ex)
-            {
-                //ToDo: Add exeption handling
+                request =
+                    requestsList.FirstOrDefault(
+                        msg => msg.Operation.Equals(Operation.Add) && msg.ToDoItem.Equals(toDoItem));
             }
             finally
             {
-                cancellationTokenSource.Dispose();
-                syncCounter = 0;
+                rwLockSlim.ExitReadLock();
             }
+
+            if (!ReferenceEquals(request, null))
+            {
+                rwLockSlim.EnterWriteLock();
+                try
+                {
+                    request.ToDoItem = toDoItem;
+                }
+                finally
+                {
+                    rwLockSlim.ExitWriteLock();
+                }
+
+                return;
+            }
+
+            //ToDo: Db update
+            //ToDo: Add exeption handling
+
+            AddToRequestsList(toDoItem, Operation.Update);
+        }
+
+        public void DeleteToDoItem(ToDoItemModel toDoItem)
+        {        
+            CommunicationMessage request;
+
+            rwLockSlim.EnterReadLock();
+            try
+            {
+                request = requestsList.FirstOrDefault(msg => msg.Operation.Equals(Operation.Add) || msg.Operation.Equals(Operation.Update) && msg.ToDoItem.Equals(toDoItem));
+            }
+            finally
+            {
+                rwLockSlim.ExitReadLock();
+            }
+
+            if (!ReferenceEquals(request, null))
+            {
+                rwLockSlim.EnterWriteLock();
+                try
+                {
+                    requestsList.Remove(request);
+                    
+                }
+                finally
+                {
+                    rwLockSlim.ExitWriteLock();
+                }
+
+                return;
+            }         
+
+            //ToDo: Db delete
+            //ToDo: Add exeption handling
+
+            AddToRequestsList(toDoItem, Operation.Delete);
+        }
+
+        public void ForceSync(CancellationTokenSource cancellationTokenSource)
+        {
+            foreach (var request in requestsList)
+            {
+                Task.Run(() =>
+                {
+                    if (cancellationTokenSource.Token.IsCancellationRequested)
+                    {
+                        //ToDo: Add cancellation handling
+                        return;
+                    }
+
+                    SolveMethod(request);
+                });
+            }
+
+
+            //ToDo: Test this
+            requestsList.Clear();
         }
 
         private bool IsSyncNeeded()
         {
-            return syncToken || maxRequestCountBeforeSync <= syncCounter;
+            return !syncToken || maxRequestCountBeforeSync <= requestsList.Count;
         }
+
+        private void AddToRequestsList(ToDoItemModel toDoItem, Operation operation)
+        {
+            rwLockSlim.EnterWriteLock();
+            try
+            {
+                if (IsSyncNeeded())
+                    ForceSync(CancellationToken ?? new CancellationTokenSource());
+
+                requestsList.Add(new CommunicationMessage { Operation = operation, ToDoItem = toDoItem });
+            }
+            finally
+            {
+                rwLockSlim.ExitWriteLock();
+            }
+        }
+
 
         private void SolveMethod(CommunicationMessage message)
         {
@@ -75,7 +185,7 @@ namespace WebApi.Concrete
                     break;
 
                 case Operation.Delete:
-                    todoService.DeleteItem(int.Parse(message.ToDoItem.Name.Substring(message.ToDoItem.Name.LastIndexOf(",", StringComparison.InvariantCultureIgnoreCase) + 1)));
+                    todoService.DeleteItem(message.ToDoItem.GetId());
                     break;
 
                 default:
