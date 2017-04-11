@@ -1,27 +1,30 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Data.Entity;
 using System.Threading;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Web;
 using Newtonsoft.Json;
+using WebApi.DAL;
 using WebApi.Helpers;
 using WebApi.Models;
 using WebApi.Services;
 
 namespace WebApi.Concrete
 {
-    public class SyncService
+    public class SyncService : IDisposable
     {
         private readonly int maxRequestCountBeforeSync;
 
-        private readonly ToDoService todoService = new ToDoService();
-        private readonly UserService userService = new UserService();
+        private readonly ToDoService todoService;
+        private readonly TempDBEntities dbEntities;
 
-        private static List<CommunicationMessage> requestsList = new List<CommunicationMessage>();  
-        private static readonly ReaderWriterLockSlim rwLockSlim =  new ReaderWriterLockSlim();
 
+        private static readonly object syncObject;
+
+        private BlockingCollection<CommunicationMessage> requestsList; 
         private bool syncToken;
 
         public CancellationTokenSource CancellationToken { get; set; }
@@ -29,14 +32,42 @@ namespace WebApi.Concrete
         public SyncService(int maxRequestCountBeforeSync = 10)
         {
             this.maxRequestCountBeforeSync = maxRequestCountBeforeSync;
+
             syncToken = false;
+
+            var cookie = HttpContext.Current.Request.Cookies["syncToken"];
+
+            if (ReferenceEquals(cookie,null) || !bool.TryParse(cookie.Value, out syncToken))
+            {
+                cookie = new HttpCookie("syncToken", syncToken.ToString())
+                {
+                    Expires = DateTime.Today.AddMonths(1)
+                };
+
+                HttpContext.Current.Response.SetCookie(cookie);
+            }
+
+            todoService = new ToDoService();
+            dbEntities = new TempDBEntities();
+            requestsList = new BlockingCollection<CommunicationMessage>(maxRequestCountBeforeSync);
         }
 
         public async Task<IList<ToDoItemModel>> GetToDoItems(int userId)
         {
-            List<ToDoItemModel> response =  await Task.Run(() => todoService.GetItems(userId).ToList());
+            List<ToDoItemModel> response = null;
 
-            //ToDo: Db get
+            if (IsSyncNeeded())
+            {
+                response = await Task.Run(() => todoService.GetItems(userId).ToList());
+
+                dbEntities.ToDoTask.AddRange(response.Select(item => item.ToOrmEntity()).ToList());
+                dbEntities.SaveChanges();
+            }
+            else
+            {
+                response = dbEntities.ToDoTask.Where(item => item.UserId == userId).Select(item => item.ToUIEntity()).ToList();
+            }
+          
             //ToDo: Add exeption handling
 
             syncToken = true;
@@ -47,8 +78,9 @@ namespace WebApi.Concrete
         public int AddToDoItem(ToDoItemModel toDoItem)
         {
             toDoItem.Name += Guid.NewGuid();
-
-            //ToDo: Db insert
+            
+            dbEntities.ToDoTask.Add(toDoItem.ToOrmEntity());
+            dbEntities.SaveChanges();
             //ToDo: Add exeption handling
 
             AddToRequestsList(toDoItem, Operation.Add);
@@ -58,36 +90,30 @@ namespace WebApi.Concrete
 
         public void UpdateToDoItem(ToDoItemModel toDoItem)
         {
-            CommunicationMessage request;
-
-            rwLockSlim.EnterReadLock();
-            try
-            {
-                request =
-                    requestsList.FirstOrDefault(
+            CommunicationMessage request;  
+                 
+            request = requestsList.FirstOrDefault(
                         msg => msg.Operation.Equals(Operation.Add) && msg.ToDoItem.Equals(toDoItem));
-            }
-            finally
-            {
-                rwLockSlim.ExitReadLock();
-            }
 
             if (!ReferenceEquals(request, null))
             {
-                rwLockSlim.EnterWriteLock();
-                try
+                lock (syncObject)
                 {
                     request.ToDoItem = toDoItem;
                 }
-                finally
-                {
-                    rwLockSlim.ExitWriteLock();
-                }
-
+                
                 return;
             }
 
-            //ToDo: Db update
+            var toDoTask = dbEntities.ToDoTask.Find(toDoItem.GetId());
+
+            toDoTask.Name = toDoItem.Name;
+            toDoTask.IsCompleted = toDoItem.IsCompleted;
+            toDoTask.UserId = toDoItem.UserId;
+
+            dbEntities.Entry(toDoTask).State = EntityState.Modified;
+            dbEntities.SaveChanges();
+
             //ToDo: Add exeption handling
 
             AddToRequestsList(toDoItem, Operation.Update);
@@ -97,33 +123,18 @@ namespace WebApi.Concrete
         {        
             CommunicationMessage request;
 
-            rwLockSlim.EnterReadLock();
-            try
-            {
-                request = requestsList.FirstOrDefault(msg => msg.Operation.Equals(Operation.Add) || msg.Operation.Equals(Operation.Update) && msg.ToDoItem.Equals(toDoItem));
-            }
-            finally
-            {
-                rwLockSlim.ExitReadLock();
-            }
+            request = requestsList.FirstOrDefault(
+                        msg => msg.Operation.Equals(Operation.Add) || msg.Operation.Equals(Operation.Update) && msg.ToDoItem.Equals(toDoItem));
 
             if (!ReferenceEquals(request, null))
             {
-                rwLockSlim.EnterWriteLock();
-                try
-                {
-                    requestsList.Remove(request);
-                    
-                }
-                finally
-                {
-                    rwLockSlim.ExitWriteLock();
-                }
+                //ToDo: unreal to delete specific item
+            }
 
-                return;
-            }         
+            var toDoTask = dbEntities.ToDoTask.Find(toDoItem.GetId());
 
-            //ToDo: Db delete
+            dbEntities.ToDoTask.Remove(toDoTask);
+
             //ToDo: Add exeption handling
 
             AddToRequestsList(toDoItem, Operation.Delete);
@@ -131,7 +142,9 @@ namespace WebApi.Concrete
 
         public void ForceSync(CancellationTokenSource cancellationTokenSource)
         {
-            foreach (var request in requestsList)
+            requestsList.CompleteAdding();
+
+            foreach (var request in requestsList.GetConsumingEnumerable())
             {
                 Task.Run(() =>
                 {
@@ -144,10 +157,7 @@ namespace WebApi.Concrete
                     SolveMethod(request);
                 });
             }
-
-
-            //ToDo: Test this
-            requestsList.Clear();
+            
         }
 
         private bool IsSyncNeeded()
@@ -157,18 +167,10 @@ namespace WebApi.Concrete
 
         private void AddToRequestsList(ToDoItemModel toDoItem, Operation operation)
         {
-            rwLockSlim.EnterWriteLock();
-            try
-            {
-                if (IsSyncNeeded())
+            if (IsSyncNeeded())
                     ForceSync(CancellationToken ?? new CancellationTokenSource());
 
-                requestsList.Add(new CommunicationMessage { Operation = operation, ToDoItem = toDoItem });
-            }
-            finally
-            {
-                rwLockSlim.ExitWriteLock();
-            }
+            requestsList.Add(new CommunicationMessage { Operation = operation, ToDoItem = toDoItem });
         }
 
 
@@ -191,6 +193,11 @@ namespace WebApi.Concrete
                 default:
                     throw new ArgumentOutOfRangeException();
             }
+        }
+
+        public void Dispose()
+        {
+            requestsList.Dispose();
         }
     }
 }
