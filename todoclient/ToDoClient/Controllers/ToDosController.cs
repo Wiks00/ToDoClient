@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Threading.Tasks;
 using System.Web.Http;
 using ToDoClient.Models;
 using ToDoClient.Services;
@@ -10,16 +11,17 @@ namespace ToDoClient.Controllers
     /// </summary>
     public class ToDosController : ApiController
     {
-        private readonly ToDoService todoService = new ToDoService();
+        private readonly UserService userService = new UserService();
+        private readonly SyncService syncService  = new SyncService();
 
         /// <summary>
         /// Returns all todo-items for the current user.
         /// </summary>
         /// <returns>The list of todo-items.</returns>
-        public IList<ToDoItemViewModel> Get()
+        public async Task<IList<ToDoItemViewModel>> Get()
         {
             var userId = userService.GetOrCreateUser();
-            return todoService.GetItems(userId);
+            return await syncService.GetToDoItemsAsync(userId);
         }
 
         /// <summary>
@@ -29,7 +31,7 @@ namespace ToDoClient.Controllers
         public void Put(ToDoItemViewModel todo)
         {
             todo.UserId = userService.GetOrCreateUser();
-            todoService.UpdateItem(todo);
+            syncService.UpdateToDoItem(todo);
         }
 
         /// <summary>
@@ -38,7 +40,7 @@ namespace ToDoClient.Controllers
         /// <param name="id">The todo item identifier.</param>
         public void Delete(int id)
         {
-            todoService.DeleteItem(id);
+            syncService.DeleteToDoItem(id);
         }
 
         /// <summary>
@@ -48,7 +50,7 @@ namespace ToDoClient.Controllers
         public void Post(ToDoItemViewModel todo)
         {
             todo.UserId = userService.GetOrCreateUser();
-            todoService.CreateItem(todo);
+            syncService.AddToDoItem(todo);
         }
     }
 }

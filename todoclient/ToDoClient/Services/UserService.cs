@@ -3,6 +3,7 @@ using System.Configuration;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Web;
+using todoclient.DAL;
 
 namespace ToDoClient.Services
 {
@@ -15,7 +16,7 @@ namespace ToDoClient.Services
         /// The service URL.
         /// </summary>
         private readonly string serviceApiUrl = ConfigurationManager.AppSettings["ToDoServiceUrl"];
-
+        private readonly TempDBEntities dbEntities = new TempDBEntities();
         /// <summary>
         /// The url for users' creation.
         /// </summary>
@@ -57,7 +58,6 @@ namespace ToDoClient.Services
             if (userCookie == null || !Int32.TryParse(userCookie.Value, out userId))
             {
                 userId = CreateUser("Noname: " + Guid.NewGuid());
-
                 // Store the user in a cookie for later access
                 var cookie = new HttpCookie("user", userId.ToString())
                 {

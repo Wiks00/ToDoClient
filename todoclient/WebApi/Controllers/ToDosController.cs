@@ -30,9 +30,9 @@ namespace WebApi.Controllers
             GetSyncService.DeleteToDoItem(todo);
         }
 
-        public void Post(ToDoItemModel todo)
+        public void Post(string name)
         {
-            GetSyncService.AddToDoItem(todo);
+            GetSyncService.AddToDoItem(new ToDoItemModel { Name = name });
         }
 
         

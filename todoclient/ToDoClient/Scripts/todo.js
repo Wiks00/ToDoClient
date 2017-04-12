@@ -6,7 +6,7 @@
     var appendRow = function(parentSelector, obj) {
         var tr = $("<tr data-id='" + obj.ToDoId + "'></tr>");
         tr.append("<td><input type='checkbox' class='completed' " + (obj.IsCompleted ? "checked" : "") + "/></td>");
-        tr.append("<td class='name' >" + obj.Name + "</td>");
+        tr.append("<td class='name' >" + obj.Name/*.substring(0, obj.Name.lastIndexOf(","))*/ + "</td>");
         tr.append("<td><input type='button' class='delete-button' value='Delete' /></td>");
         $(parentSelector).append(tr);
     }
@@ -23,8 +23,8 @@
 
     // starts loading tasks from server.
     // @returns a promise.
-    var loadTasks = function() {
-        return $.getJSON("/api/todos");
+    var loadTasks = function (userId) {
+        return $.getJSON("/api/ToDos?userId=" + userId);
     };
 
     // starts creating a task on the server.
@@ -86,10 +86,12 @@ $(function () {
         var name = $('#newName')[0].value;
 
         tasksManager.createTask(isCompleted, name)
-            .then(tasksManager.loadTasks)
-            .done(function(tasks) {
-                tasksManager.displayTasks("#tasks > tbody", tasks);
-            });
+            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(
+                function (tasks) {
+                    tasksManager.displayTasks("#tasks > tbody", tasks);
+                })
+            );
     });
 
     // bind update task checkbox click handler
@@ -100,24 +102,28 @@ $(function () {
         var name = tr.find('.name').text();
         
         tasksManager.updateTask(taskId, isCompleted, name)
-            .then(tasksManager.loadTasks)
-            .done(function (tasks) {
-                tasksManager.displayTasks("#tasks > tbody", tasks);
-            });
+            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(
+                function (tasks) {
+                    tasksManager.displayTasks("#tasks > tbody", tasks);
+                })
+            );
     });
 
     // bind delete button click for future rows
     $('#tasks > tbody').on('click', '.delete-button', function() {
         var taskId = $(this).parent().parent().attr("data-id");
         tasksManager.deleteTask(taskId)
-            .then(tasksManager.loadTasks)
-            .done(function(tasks) {
-                tasksManager.displayTasks("#tasks > tbody", tasks);
-            });
+            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(
+                function (tasks) {
+                    tasksManager.displayTasks("#tasks > tbody", tasks);
+                })
+            );
     });
 
     // load all tasks on startup
-    tasksManager.loadTasks()
+    tasksManager.loadTasks($.cookie("user"))
         .done(function(tasks) {
             tasksManager.displayTasks("#tasks > tbody", tasks);
         });
