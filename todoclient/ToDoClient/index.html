@@ -2,31 +2,43 @@
 <html>
 <head>
     <title>ToDo list</title>
-    <meta charset="utf-8"/>
-    
-    <link rel="stylesheet" type="text/css" href="Styles/site.css">
+    <meta charset="utf-8" />
 
+    <link rel="stylesheet" type="text/css" href="Styles/site.css">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
     <script src="Scripts/jquery-3.1.0.js" language="javascript"></script>
+    <script src="Scripts/jquery.cookie.js" language="javascript"></script>
     <script src="Scripts/todo.js" language="javascript"></script>
 </head>
 <body>
-    <table id="tasks">
-        <thead>
-            <tr>
-                <th>Completed</th>
-                <th>Task</th>
-                <th>Actions</th>
-            </tr>
-            <!-- The row for creating new items. -->
-            <tr id="new">
-                <td><input type='checkbox' id="newCompleted" /></td>
-                <td><input type='text' id="newName" /></td>
-                <td><input type='button' id="newCreate" value='Create' /></td>
-            </tr>
-        </thead>
-        <tbody>
-            
-        </tbody>
-    </table>
+    <div class="container">
+        <div class="row">
+            <div id="new" class="col-md-8">
+                <div class="form-group">
+                    <label for="newName">Task:</label>
+                    <textarea type="textarea" rows="3" class="form-control" id="newName"></textarea>
+                </div>
+                <div class="form-group">
+                    <div class="checkbox">
+                        <label><input type="checkbox" id="newCompleted"> Completed</label>
+                    </div>
+                </div>
+                <button type="button" id="newCreate" class="btn btn-success">Create</button>
+            </div>
+            <div class="col-md-8">
+                <table class="table table-striped" id="tasks">
+                    <thead>
+                        <tr>
+                            <th>Completed</th>
+                            <th>Task</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+
+            </div>
+        </div>
+    </div>
 </body>
 </html>

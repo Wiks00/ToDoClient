@@ -1,4 +1,4 @@
-﻿// Создание кода T4 для модели "C:\Users\Wiks3\Source\Repos\ToDoClient\todoclient\WebApi\DAL\TempDBModel.edmx" включено. 
+﻿// Создание кода T4 для модели "C:\Users\Wiks3\Source\Repos\ToDoClient 2.0\todoclient\WebApi\DAL\TempDBModel.edmx" включено. 
 // Чтобы включить формирование кода прежних версий, измените значение свойства "Стратегия создания кода" конструктора
 // на "Legacy ObjectContext". Это свойство доступно в окне "Свойства", если модель
 // открыта в конструкторе.

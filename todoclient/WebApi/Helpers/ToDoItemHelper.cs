@@ -11,8 +11,15 @@ namespace WebApi.Helpers
     {
         public static int GetId(this ToDoItemModel toDoItem)
             => int.Parse(
-                    toDoItem.Name.Substring(
-                        toDoItem.Name.LastIndexOf(",", StringComparison.InvariantCultureIgnoreCase) + 1));
+                toDoItem.Name.Substring(
+                    toDoItem.Name.LastIndexOf(",", StringComparison.InvariantCultureIgnoreCase) + 1));
+
+        public static string GetName(this string title, bool withComma = false)
+        {
+            title = title.Trim();
+
+            return title.Substring(0, title.LastIndexOf(",", StringComparison.InvariantCultureIgnoreCase) + Convert.ToInt32(withComma));
+        }
 
         public static ToDoItemModel ToUIEntity(this ToDoTask toDoTask)
         {
@@ -24,9 +31,10 @@ namespace WebApi.Helpers
                 ToDoId = toDoTask.Id,
                 UserId = toDoTask.UserId,
                 IsCompleted = toDoTask.IsCompleted,
-                Name = toDoTask.Name              
+                Name = toDoTask.Name
             };
         }
+
 
         public static ToDoTask ToOrmEntity(this ToDoItemModel toDoItem)
         {
@@ -37,7 +45,8 @@ namespace WebApi.Helpers
             {
                 UserId = toDoItem.UserId,
                 IsCompleted = toDoItem.IsCompleted,
-                Name = toDoItem.Name
+                Name = toDoItem.ToDoId != 0
+                    ? toDoItem.Name.GetName(true) + toDoItem.ToDoId : toDoItem.Name
             };
         }
     }

@@ -2,6 +2,7 @@
 using System.Configuration;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using ToDoClient.Models;
 
@@ -45,7 +46,8 @@ namespace ToDoClient.Services
         /// </summary>
         public ToDoService()
         {
-            httpClient = new HttpClient();
+            httpClient = new HttpClient(new HttpClientHandler { UseDefaultCredentials = true });
+
             httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         }
 
@@ -54,9 +56,9 @@ namespace ToDoClient.Services
         /// </summary>
         /// <param name="userId">The User Id.</param>
         /// <returns>The list of todos.</returns>
-        public IList<ToDoItemViewModel> GetItems(int userId)
+        public async Task<IList<ToDoItemViewModel>> GetItemsAsync(int userId)
         {
-            var dataAsString = httpClient.GetStringAsync(string.Format(serviceApiUrl + GetAllUrl, userId)).Result;
+            var dataAsString = await httpClient.GetStringAsync(string.Format(serviceApiUrl + GetAllUrl, userId));
             return JsonConvert.DeserializeObject<IList<ToDoItemViewModel>>(dataAsString);
         }
 

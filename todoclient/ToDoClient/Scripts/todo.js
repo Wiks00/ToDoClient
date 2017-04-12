@@ -1,12 +1,12 @@
-﻿var tasksManager = function() {
+﻿var tasksManager = function () {
 
     // appends a row to the tasks table.
     // @parentSelector: selector to append a row to.
     // @obj: task object to append.
-    var appendRow = function(parentSelector, obj) {
+    var appendRow = function (parentSelector, obj) {
         var tr = $("<tr data-id='" + obj.ToDoId + "'></tr>");
         tr.append("<td><input type='checkbox' class='completed' " + (obj.IsCompleted ? "checked" : "") + "/></td>");
-        tr.append("<td class='name' >" + obj.Name + "</td>");
+        tr.append("<td class='name' >" + obj.Name/*.substring(0, obj.Name.lastIndexOf(","))*/ + "</td>");
         tr.append("<td><input type='button' class='delete-button' value='Delete' /></td>");
         $(parentSelector).append(tr);
     }
@@ -14,24 +14,24 @@
     // adds all tasks as rows (deletes all rows before).
     // @parentSelector: selector to append a row to.
     // @tasks: array of tasks to append.
-    var displayTasks = function(parentSelector, tasks) {
+    var displayTasks = function (parentSelector, tasks) {
         $(parentSelector).empty();
-        $.each(tasks, function(i, item) {
+        $.each(tasks, function (i, item) {
             appendRow(parentSelector, item);
         });
     };
 
     // starts loading tasks from server.
     // @returns a promise.
-    var loadTasks = function() {
-        return $.getJSON("/api/todos");
+    var loadTasks = function (userId) {
+        return $.getJSON("/api/ToDos?userId=" + userId);
     };
 
     // starts creating a task on the server.
     // @isCompleted: indicates if new task should be completed.
     // @name: name of new task.
     // @return a promise.
-    var createTask = function(isCompleted, name) {
+    var createTask = function (isCompleted, name) {
         return $.post("/api/todos",
         {
             IsCompleted: isCompleted,
@@ -44,7 +44,7 @@
     // @isCompleted: indicates if the task should be completed.
     // @name: name of the task.
     // @return a promise.
-    var updateTask = function(id, isCompleted, name) {
+    var updateTask = function (id, isCompleted, name) {
         return $.ajax(
         {
             url: "/api/todos",
@@ -81,15 +81,17 @@
 
 $(function () {
     // add new task button click handler
-    $("#newCreate").click(function() {
+    $("#newCreate").click(function () {
         var isCompleted = $('#newCompleted')[0].checked;
         var name = $('#newName')[0].value;
 
         tasksManager.createTask(isCompleted, name)
-            .then(tasksManager.loadTasks)
-            .done(function(tasks) {
-                tasksManager.displayTasks("#tasks > tbody", tasks);
-            });
+            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(
+                function (tasks) {
+                    tasksManager.displayTasks("#tasks > tbody", tasks);
+                })
+            );
     });
 
     // bind update task checkbox click handler
@@ -98,27 +100,31 @@ $(function () {
         var taskId = tr.attr("data-id");
         var isCompleted = tr.find('.completed')[0].checked;
         var name = tr.find('.name').text();
-        
+
         tasksManager.updateTask(taskId, isCompleted, name)
-            .then(tasksManager.loadTasks)
-            .done(function (tasks) {
-                tasksManager.displayTasks("#tasks > tbody", tasks);
-            });
+            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(
+                function (tasks) {
+                    tasksManager.displayTasks("#tasks > tbody", tasks);
+                })
+            );
     });
 
     // bind delete button click for future rows
-    $('#tasks > tbody').on('click', '.delete-button', function() {
+    $('#tasks > tbody').on('click', '.delete-button', function () {
         var taskId = $(this).parent().parent().attr("data-id");
         tasksManager.deleteTask(taskId)
-            .then(tasksManager.loadTasks)
-            .done(function(tasks) {
-                tasksManager.displayTasks("#tasks > tbody", tasks);
-            });
+            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(
+                function (tasks) {
+                    tasksManager.displayTasks("#tasks > tbody", tasks);
+                })
+            );
     });
 
     // load all tasks on startup
-    tasksManager.loadTasks()
-        .done(function(tasks) {
+    tasksManager.loadTasks($.cookie("user"))
+        .done(function (tasks) {
             tasksManager.displayTasks("#tasks > tbody", tasks);
         });
 });

@@ -15,128 +15,84 @@ namespace WebApi.Services
 {
     public class SyncService : IDisposable
     {
-        private readonly int maxRequestCountBeforeSync;
-
         private readonly ToDoService todoService;
         private readonly TempDBEntities dbEntities;
-
-
-        private static readonly object syncObject;
-
-        private BlockingCollection<CommunicationMessage> requestsList; 
-        private bool syncToken;
+        private readonly BlockingCollection<CommunicationMessage> requestsList; 
 
         public CancellationTokenSource CancellationToken { get; set; }
 
-        public SyncService(int maxRequestCountBeforeSync = 10)
+        public SyncService()
         {
-            this.maxRequestCountBeforeSync = maxRequestCountBeforeSync;
-
-            syncToken = false;
-
-            var cookie = HttpContext.Current.Request.Cookies["syncToken"];
-
-            if (ReferenceEquals(cookie,null) || !bool.TryParse(cookie.Value, out syncToken))
-            {
-                cookie = new HttpCookie("syncToken", syncToken.ToString())
-                {
-                    Expires = DateTime.Today.AddMonths(1)
-                };
-
-                HttpContext.Current.Response.SetCookie(cookie);
-            }
-
             todoService = new ToDoService();
             dbEntities = new TempDBEntities();
-            requestsList = new BlockingCollection<CommunicationMessage>(maxRequestCountBeforeSync);
+            requestsList = new BlockingCollection<CommunicationMessage>();
         }
 
         public async Task<IList<ToDoItemModel>> GetToDoItemsAsync(int userId)
         {
-            List<ToDoItemModel> response;
+            var toDos = dbEntities.ToDoTask.Where(item => item.UserId == userId).ToList();
 
-            if (IsSyncNeeded())
+            List<ToDoItemModel> response = await Task.Run(() => todoService.GetItems(userId).ToList());
+
+            foreach (var item in response)
             {
-                response = await Task.Run(() => todoService.GetItems(userId).ToList());
+                var toDoItem = toDos.FirstOrDefault(toDo => toDo.Name.Trim().Equals(item.Name.Trim(), StringComparison.InvariantCultureIgnoreCase));
 
-                dbEntities.ToDoTask.AddRange(response.Select(item => item.ToOrmEntity()).ToList());
-                dbEntities.SaveChanges();
+                if (!ReferenceEquals(toDoItem, null))
+                {
+                    toDoItem.Name = item.Name.GetName(true) + item.ToDoId;
+
+                    dbEntities.Entry(toDoItem).State = EntityState.Modified;
+                }
+
+                if (!toDos.Any(toDo => toDo.Name.GetName().Equals(item.Name.GetName())))
+                {
+                    dbEntities.ToDoTask.Add(item.ToOrmEntity());
+                }
+
             }
-            else
-            {
-                response = dbEntities.ToDoTask.Where(item => item.UserId == userId).Select(item => item.ToUIEntity()).ToList();
-            }
-          
-            //ToDo: Add exeption handling
 
-            syncToken = true;
+            dbEntities.SaveChanges();  
 
-            return response;
+            return dbEntities.ToDoTask.Where(item => item.UserId == userId).ToList().Select(item => item.ToUIEntity()).ToList();
         }
 
         public void AddToDoItem(ToDoItemModel toDoItem)
         {
-            toDoItem.Name += Guid.NewGuid();
-            
+            toDoItem.Name += "," + Guid.NewGuid();
+
             dbEntities.ToDoTask.Add(toDoItem.ToOrmEntity());
             dbEntities.SaveChanges();
-            //ToDo: Add exeption handling
 
             AddToRequestsList(toDoItem, Operation.Add);
         }
 
         public void UpdateToDoItem(ToDoItemModel toDoItem)
         {
-            /*CommunicationMessage request = requestsList.FirstOrDefault(
-                msg => msg.Operation.Equals(Operation.Add) && msg.ToDoItem.Equals(toDoItem));
+            var toDoTask = dbEntities.ToDoTask.Find(toDoItem.ToDoId);
 
-            if (!ReferenceEquals(request, null))
-            {
-                lock (syncObject)
-                {
-                    request.ToDoItem = toDoItem;
-                }
-                
-                return;
-            }*/
-
-            var toDoTask = dbEntities.ToDoTask.Find(toDoItem.GetId());
-
-            toDoTask.Name = toDoItem.Name;
             toDoTask.IsCompleted = toDoItem.IsCompleted;
-            toDoTask.UserId = toDoItem.UserId;
 
             dbEntities.Entry(toDoTask).State = EntityState.Modified;
             dbEntities.SaveChanges();
 
-            //ToDo: Add exeption handling
+            toDoItem.ToDoId = toDoItem.GetId();
 
             AddToRequestsList(toDoItem, Operation.Update);
         }
 
-        public void DeleteToDoItem(ToDoItemModel toDoItem)
+        public void DeleteToDoItem(int id)
         {
-            /*CommunicationMessage request = requestsList.FirstOrDefault(
-                msg => msg.Operation.Equals(Operation.Add) || msg.Operation.Equals(Operation.Update) && msg.ToDoItem.Equals(toDoItem));
 
-            if (!ReferenceEquals(request, null))
-            {
-                //ToDo: unreal to delete specific item
-            }*/
-
-            var toDoTask = dbEntities.ToDoTask.Find(toDoItem.GetId());
+            var toDoTask = dbEntities.ToDoTask.Find(id);
 
             dbEntities.ToDoTask.Remove(toDoTask);
 
-            //ToDo: Add exeption handling
-
-            AddToRequestsList(toDoItem, Operation.Delete);
+            dbEntities.SaveChanges();
         }
 
         public void ForceSync(CancellationTokenSource cancellationTokenSource)
         {
-            requestsList.CompleteAdding();
-
             foreach (var request in requestsList.GetConsumingEnumerable())
             {
                 Task.Run(() =>
@@ -149,21 +105,13 @@ namespace WebApi.Services
 
                     SolveMethod(request);
                 });
-            }
-            
+            }           
         }
-
-        private bool IsSyncNeeded()
-        {
-            return !syncToken || maxRequestCountBeforeSync <= requestsList.Count;
-        }
-
         private void AddToRequestsList(ToDoItemModel toDoItem, Operation operation)
         {
-            if (IsSyncNeeded())
-                    ForceSync(CancellationToken ?? new CancellationTokenSource());
-
             requestsList.Add(new CommunicationMessage { Operation = operation, ToDoItem = toDoItem });
+
+            ForceSync(CancellationToken ?? new CancellationTokenSource());
         }
 
 

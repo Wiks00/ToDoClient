@@ -51,14 +51,13 @@ namespace ToDoClient.Services
         public int GetOrCreateUser()
         {
             var userCookie = HttpContext.Current.Request.Cookies["user"];
+
             int userId;
 
-            // No user cookie or it's damaged
-            if (userCookie == null || !Int32.TryParse(userCookie.Value, out userId))
+            if (ReferenceEquals(userCookie, null) || !int.TryParse(userCookie.Value, out userId))
             {
                 userId = CreateUser("Noname: " + Guid.NewGuid());
 
-                // Store the user in a cookie for later access
                 var cookie = new HttpCookie("user", userId.ToString())
                 {
                     Expires = DateTime.Today.AddMonths(1)

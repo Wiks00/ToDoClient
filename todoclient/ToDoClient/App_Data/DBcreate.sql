@@ -1,11 +1,11 @@
 CREATE TABLE Users (
-	id INT NOT NULL,
+	id INT IDENTITY(1,1) NOT NULL,
 	username varchar(1000) NOT NULL,
 	PRIMARY KEY (id)
 );
 
 CREATE TABLE ToDoTask (
-	Id  INT NOT IDENTITY(1,1) NULL,
+	Id  INT IDENTITY(1,1) NOT NULL,
 	UserId INT NOT NULL,
 	Name varchar(100) NOT NULL,
 	IsCompleted BIT NOT NULL,
