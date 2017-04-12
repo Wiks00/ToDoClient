@@ -6,7 +6,7 @@
     var appendRow = function (parentSelector, obj) {
         var tr = $("<tr data-id='" + obj.ToDoId + "'></tr>");
         tr.append("<td><input type='checkbox' class='completed' " + (obj.IsCompleted ? "checked" : "") + "/></td>");
-        tr.append("<td class='name' >" + obj.Name/*.substring(0, obj.Name.lastIndexOf(","))*/ + "</td>");
+        tr.append("<td class='name' >" + obj.Name.substring(0, obj.Name.lastIndexOf(",")) + "</td>");
         tr.append("<td><input type='button' class='delete-button' value='Delete' /></td>");
         $(parentSelector).append(tr);
     }
