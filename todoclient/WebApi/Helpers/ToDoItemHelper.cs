@@ -9,10 +9,9 @@ namespace WebApi.Helpers
 {
     public static class ToDoItemHelper
     {
-        public static int GetId(this ToDoItemModel toDoItem)
-            => int.Parse(
-                toDoItem.Name.Substring(
-                    toDoItem.Name.LastIndexOf(",", StringComparison.InvariantCultureIgnoreCase) + 1));
+        public static bool TryGetId(this string name, out int id)
+            => int.TryParse(name.Substring(name.LastIndexOf(",", StringComparison.InvariantCultureIgnoreCase) + 1), out id);
+
 
         public static string GetName(this string title, bool withComma = false)
         {

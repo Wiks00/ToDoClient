@@ -86,7 +86,7 @@ $(function () {
         var name = $('#newName')[0].value;
 
         tasksManager.createTask(isCompleted, name)
-            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(tasksManager.loadTasks($.cookie("user"))
             .done(
                 function (tasks) {
                     tasksManager.displayTasks("#tasks > tbody", tasks);
@@ -102,7 +102,7 @@ $(function () {
         var name = tr.find('.name').text();
 
         tasksManager.updateTask(taskId, isCompleted, name)
-            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(tasksManager.loadTasks($.cookie("user"))
             .done(
                 function (tasks) {
                     tasksManager.displayTasks("#tasks > tbody", tasks);
@@ -114,7 +114,7 @@ $(function () {
     $('#tasks > tbody').on('click', '.delete-button', function () {
         var taskId = $(this).parent().parent().attr("data-id");
         tasksManager.deleteTask(taskId)
-            .then(tasksManager.loadTasks($.cookie("user"))
+            .done(tasksManager.loadTasks($.cookie("user"))
             .done(
                 function (tasks) {
                     tasksManager.displayTasks("#tasks > tbody", tasks);

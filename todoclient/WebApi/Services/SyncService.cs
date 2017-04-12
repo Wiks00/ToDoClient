@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.Data.Entity;
 using System.Threading;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
 using System.Threading.Tasks;
 using System.Web;
 using WebApi.Concrete;
@@ -13,132 +15,129 @@ using WebApi.Models;
 
 namespace WebApi.Services
 {
-    public class SyncService : IDisposable
+    public class SyncService
     {
         private readonly ToDoService todoService;
         private readonly TempDBEntities dbEntities;
-        private readonly BlockingCollection<CommunicationMessage> requestsList; 
 
-        public CancellationTokenSource CancellationToken { get; set; }
+        private static bool isSync;
 
         public SyncService()
         {
             todoService = new ToDoService();
             dbEntities = new TempDBEntities();
-            requestsList = new BlockingCollection<CommunicationMessage>();
         }
 
         public async Task<IList<ToDoItemModel>> GetToDoItemsAsync(int userId)
         {
-            var toDos = dbEntities.ToDoTask.Where(item => item.UserId == userId).ToList();
-
-            List<ToDoItemModel> response = await Task.Run(() => todoService.GetItems(userId).ToList());
-
-            foreach (var item in response)
+            if (!isSync)
             {
-                var toDoItem = toDos.FirstOrDefault(toDo => toDo.Name.Trim().Equals(item.Name.Trim(), StringComparison.InvariantCultureIgnoreCase));
+                var response = await todoService.GetItemsAsync(userId);
+               
+                List<ToDoTask> userToDos = dbEntities.ToDoTask.Where(item => item.UserId == userId).ToList();
 
-                if (!ReferenceEquals(toDoItem, null))
+                int noGiudId;
+                List<ToDoTask>  toDos = userToDos.Where(item => !item.Name.TryGetId(out noGiudId)).ToList();
+
+                foreach (var item in response)
                 {
-                    toDoItem.Name = item.Name.GetName(true) + item.ToDoId;
+                    if (toDos.Count != 0)
+                    { 
+                        var toDoItem =
+                            toDos.FirstOrDefault(toDo =>toDo.Name.Trim()
+                                                            .Equals(item.Name.Trim(), StringComparison.InvariantCultureIgnoreCase));
 
-                    dbEntities.Entry(toDoItem).State = EntityState.Modified;
+                        if (!ReferenceEquals(toDoItem, null))
+                        {
+                            toDoItem.Name = item.Name.GetName(true) + item.ToDoId;
+
+                            dbEntities.Entry(toDoItem).State = EntityState.Modified;
+                        }
+                    }
+
+                    if (!userToDos.Any(toDo => toDo.Name.GetName().Equals(item.Name.GetName())))
+                    {
+                        dbEntities.ToDoTask.Add(item.ToOrmEntity());
+                    }
+
                 }
 
-                if (!toDos.Any(toDo => toDo.Name.GetName().Equals(item.Name.GetName())))
-                {
-                    dbEntities.ToDoTask.Add(item.ToOrmEntity());
-                }
+                dbEntities.SaveChanges();
 
+                isSync = true;
             }
-
-            dbEntities.SaveChanges();  
 
             return dbEntities.ToDoTask.Where(item => item.UserId == userId).ToList().Select(item => item.ToUIEntity()).ToList();
         }
 
-        public void AddToDoItem(ToDoItemModel toDoItem)
+        public async Task<HttpResponseMessage> AddToDoItemAsync(ToDoItemModel toDoItem)
         {
             toDoItem.Name += "," + Guid.NewGuid();
 
-            dbEntities.ToDoTask.Add(toDoItem.ToOrmEntity());
-            dbEntities.SaveChanges();
+            var response = await todoService.CreateItemAsync(toDoItem);
 
-            AddToRequestsList(toDoItem, Operation.Add);
-        }
-
-        public void UpdateToDoItem(ToDoItemModel toDoItem)
-        {
-            var toDoTask = dbEntities.ToDoTask.Find(toDoItem.ToDoId);
-
-            toDoTask.IsCompleted = toDoItem.IsCompleted;
-
-            dbEntities.Entry(toDoTask).State = EntityState.Modified;
-            dbEntities.SaveChanges();
-
-            toDoItem.ToDoId = toDoItem.GetId();
-
-            AddToRequestsList(toDoItem, Operation.Update);
-        }
-
-        public void DeleteToDoItem(int id)
-        {
-
-            var toDoTask = dbEntities.ToDoTask.Find(id);
-
-            dbEntities.ToDoTask.Remove(toDoTask);
-
-            dbEntities.SaveChanges();
-        }
-
-        public void ForceSync(CancellationTokenSource cancellationTokenSource)
-        {
-            foreach (var request in requestsList.GetConsumingEnumerable())
+            if (response.IsSuccessStatusCode)
             {
-                Task.Run(() =>
-                {
-                    if (cancellationTokenSource.Token.IsCancellationRequested)
-                    {
-                        //ToDo: Add cancellation handling
-                        return;
-                    }
+                dbEntities.ToDoTask.Add(toDoItem.ToOrmEntity());
+                dbEntities.SaveChanges();
 
-                    SolveMethod(request);
-                });
-            }           
-        }
-        private void AddToRequestsList(ToDoItemModel toDoItem, Operation operation)
-        {
-            requestsList.Add(new CommunicationMessage { Operation = operation, ToDoItem = toDoItem });
-
-            ForceSync(CancellationToken ?? new CancellationTokenSource());
-        }
-
-
-        private void SolveMethod(CommunicationMessage message)
-        {
-            switch (message.Operation)
-            {
-                case Operation.Add:
-                    todoService.CreateItem(message.ToDoItem);
-                    break;
-
-                case Operation.Update:
-                    todoService.UpdateItem(message.ToDoItem);
-                    break;
-
-                case Operation.Delete:
-                    todoService.DeleteItem(message.ToDoItem.GetId());
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException();
+                isSync = false;
             }
+
+            return response;
         }
 
-        public void Dispose()
+        public async Task<HttpResponseMessage> UpdateToDoItemAsync(ToDoItemModel toDoItem)
         {
-            requestsList.Dispose();
+            int cloudId;
+            if (toDoItem.Name.TryGetId(out cloudId))
+            {
+                var copyToCloud = toDoItem.Clone();
+                copyToCloud.ToDoId = cloudId;
+
+                var response = await todoService.UpdateItemAsync(copyToCloud);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var toDoTask = dbEntities.ToDoTask.Find(toDoItem.ToDoId);
+
+                    toDoTask.IsCompleted = toDoItem.IsCompleted;
+
+                    dbEntities.Entry(toDoTask).State = EntityState.Modified;
+                    dbEntities.SaveChanges();
+
+                    isSync = false;
+                }
+
+                return response;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.InternalServerError);
         }
+
+        public async Task<HttpResponseMessage> DeleteToDoItemAsync(int id)
+        {
+
+            var ormToDo = dbEntities.ToDoTask.Find(id);
+
+            int cloudId;
+            if (ormToDo.Name.TryGetId(out cloudId))
+            {
+                var response = await todoService.DeleteItemAsync(cloudId);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    dbEntities.ToDoTask.Remove(ormToDo);
+
+                    dbEntities.SaveChanges();
+
+                    isSync = false;
+                }
+
+                return response;
+            }
+
+            return new HttpResponseMessage(HttpStatusCode.InternalServerError);
+        }        
     }
 }

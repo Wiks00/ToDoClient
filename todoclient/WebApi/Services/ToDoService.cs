@@ -1,7 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Configuration;
+using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using WebApi.Models;
 
@@ -53,9 +55,9 @@ namespace WebApi.Services
         /// </summary>
         /// <param name="userId">The User Id.</param>
         /// <returns>The list of todos.</returns>
-        public IList<ToDoItemModel> GetItems(int userId)
+        public async Task<IList<ToDoItemModel>> GetItemsAsync(int userId)
         {
-            var dataAsString = httpClient.GetStringAsync(string.Format(serviceApiUrl + GetAllUrl, userId)).Result;
+            var dataAsString = await httpClient.GetStringAsync(string.Format(serviceApiUrl + GetAllUrl, userId));
             return JsonConvert.DeserializeObject<IList<ToDoItemModel>>(dataAsString);
         }
 
@@ -63,30 +65,27 @@ namespace WebApi.Services
         /// Creates a todo. UserId is taken from the model.
         /// </summary>
         /// <param name="item">The todo to create.</param>
-        public void CreateItem(ToDoItemModel item)
+        public async Task<HttpResponseMessage> CreateItemAsync(ToDoItemModel item)
         {
-            httpClient.PostAsJsonAsync(serviceApiUrl + CreateUrl, item)
-                .Result.EnsureSuccessStatusCode();
+            return await httpClient.PostAsJsonAsync(serviceApiUrl + CreateUrl, item);
         }
 
         /// <summary>
         /// Updates a todo.
         /// </summary>
         /// <param name="item">The todo to update.</param>
-        public void UpdateItem(ToDoItemModel item)
+        public async Task<HttpResponseMessage> UpdateItemAsync(ToDoItemModel item)
         {
-            httpClient.PutAsJsonAsync(serviceApiUrl + UpdateUrl, item)
-                .Result.EnsureSuccessStatusCode();
+            return await httpClient.PutAsJsonAsync(serviceApiUrl + UpdateUrl, item);
         }
 
         /// <summary>
         /// Deletes a todo.
         /// </summary>
         /// <param name="id">The todo Id to delete.</param>
-        public void DeleteItem(int id)
+        public async Task<HttpResponseMessage> DeleteItemAsync(int id)
         {
-            httpClient.DeleteAsync(string.Format(serviceApiUrl + DeleteUrl, id))
-                .Result.EnsureSuccessStatusCode();
+            return await httpClient.DeleteAsync(string.Format(serviceApiUrl + DeleteUrl, id));
         }
     }
 }

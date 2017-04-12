@@ -20,19 +20,19 @@ namespace WebApi.Controllers
             return await GetSyncService.GetToDoItemsAsync(userId);
         }
 
-        public void Put(ToDoItemModel todo)
+        public async Task<HttpResponseMessage> Put(ToDoItemModel todo)
         {
-            GetSyncService.UpdateToDoItem(todo);
+            return await GetSyncService.UpdateToDoItemAsync(todo);
         }
 
-        public void Delete(int id)
+        public async Task<HttpResponseMessage> Delete(int id)
         {
-            GetSyncService.DeleteToDoItem(id);
+            return await GetSyncService.DeleteToDoItemAsync(id);
         }
 
-        public void Post(ToDoItemModel todo)
+        public async Task<HttpResponseMessage> Post(ToDoItemModel todo)
         {
-            GetSyncService.AddToDoItem(todo);
+            return await GetSyncService.AddToDoItemAsync(todo);
         }       
 
     }

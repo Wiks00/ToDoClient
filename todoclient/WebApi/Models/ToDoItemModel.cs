@@ -6,7 +6,7 @@ using WebApi.Helpers;
 
 namespace WebApi.Models
 {
-    public class ToDoItemModel
+    public class ToDoItemModel : ICloneable
     {
         /// <summary>
         /// Gets or sets to do identifier.
@@ -40,5 +40,16 @@ namespace WebApi.Models
         /// The name.
         /// </value>
         public string Name { get; set; }
+
+        object ICloneable.Clone()
+            => Clone();
+
+        public ToDoItemModel Clone()
+            => new ToDoItemModel {
+                                    Name = Name,
+                                    IsCompleted = IsCompleted,
+                                    ToDoId = ToDoId,
+                                    UserId = UserId
+                                 };
     }
 }

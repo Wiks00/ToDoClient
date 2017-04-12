@@ -85,7 +85,7 @@ namespace ToDoClient.Services
         /// <summary>
         /// Deletes a todo.
         /// </summary>
-        /// <param name="name">The todo name to delete.</param>
+        /// <param name="id">The todo id to delete.</param>
         public void DeleteItem(int id)
         {
             httpClient.DeleteAsync(string.Format(serviceApiUrl + DeleteUrl, id))

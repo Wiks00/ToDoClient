@@ -92,29 +92,7 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Content Include="App_Data\DBcreate.sql" />
-    <Content Include="App_Data\TempDB.mdf" />
-    <Content Include="App_Data\TempDB_log.ldf">
-      <DependentUpon>TempDB.mdf</DependentUpon>
-    </Content>
-    <Content Include="DAL\TempDBModel.Context.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <DependentUpon>TempDBModel.edmx</DependentUpon>
-      <LastGenOutput>TempDBModel.Context.cs</LastGenOutput>
-    </Content>
-    <Content Include="DAL\TempDBModel.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <DependentUpon>TempDBModel.edmx</DependentUpon>
-      <LastGenOutput>TempDBModel.cs</LastGenOutput>
-    </Content>
     <Content Include="Global.asax" />
-    <EntityDeploy Include="DAL\TempDBModel.edmx">
-      <Generator>EntityModelCodeGenerator</Generator>
-      <LastGenOutput>TempDBModel.Designer.cs</LastGenOutput>
-    </EntityDeploy>
-    <Content Include="DAL\TempDBModel.edmx.diagram">
-      <DependentUpon>TempDBModel.edmx</DependentUpon>
-    </Content>
     <None Include="Scripts\jquery-3.1.0.intellisense.js" />
     <Content Include="index.html" />
     <Content Include="Scripts\jquery-3.1.0.js" />
@@ -128,36 +106,12 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="App_Start\WebApiConfig.cs" />
-    <Compile Include="Concrete\CommunicationMessage.cs" />
     <Compile Include="Controllers\ToDosController.cs" />
-    <Compile Include="DAL\TempDBModel.Context.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>TempDBModel.Context.tt</DependentUpon>
-    </Compile>
-    <Compile Include="DAL\TempDBModel.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>TempDBModel.tt</DependentUpon>
-    </Compile>
-    <Compile Include="DAL\TempDBModel.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>TempDBModel.edmx</DependentUpon>
-    </Compile>
-    <Compile Include="DAL\ToDoTask.cs">
-      <DependentUpon>TempDBModel.tt</DependentUpon>
-    </Compile>
-    <Compile Include="DAL\Users.cs">
-      <DependentUpon>TempDBModel.tt</DependentUpon>
-    </Compile>
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>
     </Compile>
-    <Compile Include="Helpers\ToDoItemHelper.cs" />
     <Compile Include="Models\ToDoViewModel.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Services\SyncService.cs" />
     <Compile Include="Services\ToDoService.cs" />
     <Compile Include="Services\UserService.cs" />
   </ItemGroup>
@@ -173,7 +127,9 @@
       <DependentUpon>Web.config</DependentUpon>
     </None>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <Folder Include="App_Data\" />
+  </ItemGroup>
   <ItemGroup>
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
   </ItemGroup>
